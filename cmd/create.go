@@ -56,8 +56,6 @@ func init() {
 				return
 			}
 
-			// print body
-			fmt.Println(string(body))
 			createUrl := fmt.Sprintf("runtime/%s/deployment", createCmdFlags.app)
 			client, err := api.DefaultRESTClient()
 			if err != nil {
@@ -71,7 +69,7 @@ func init() {
 				return
 			}
 
-			fmt.Printf("Response: %s\n", response)
+			fmt.Printf("App created: %s\n", response) // TODO pretty print details
 		},
 	}
 
