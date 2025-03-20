@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cli/go-gh"
-	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 )
 
@@ -35,16 +34,21 @@ func init() {
 			}
 
 			deleteUrl := fmt.Sprintf("runtime/%s/deployment", deleteCmdFlags.app)
-			client, _ := gh.RESTClient(&api.ClientOptions{
-				// Log: os.Stderr,
-			})
-
-			var response deleteResp
-			err := client.Delete(deleteUrl, &response)
+			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Printf("Error deleting app: %v\n", err)
+				fmt.Println(err)
 				return
 			}
+			var response string
+			err = client.Delete(deleteUrl, &response)
+			if err != nil {
+				// print err and response
+				fmt.Printf("Error deleting app: %v\n", err)
+				fmt.Printf("Response: %v\n", response)
+				return
+			}
+
+			fmt.Printf("App deleted: %s\n", response)
 		},
 	}
 
