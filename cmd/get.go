@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
@@ -37,7 +38,7 @@ func init() {
 				return
 			}
 
-			var response string
+			response := json.RawMessage{}
 			err = client.Get(getUrl, &response)
 			if err != nil {
 				fmt.Printf("Error retrieving app details: %v\n", err)
