@@ -68,7 +68,7 @@ func init() {
 					value := parts[1]
 					requestBody.Secrets[key] = value
 				} else {
-					fmt.Printf("Error: Invalid environment variable format (%s). Must be in the form 'key=value'\n", pair)
+					fmt.Printf("Error: Invalid secret format (%s). Must be in the form 'key=value'\n", pair)
 					return
 				}
 			}
