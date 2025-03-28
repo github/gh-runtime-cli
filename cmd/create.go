@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -11,7 +12,9 @@ import (
 )
 
 type createCmdFlags struct {
-	app string
+	app                  string
+	EnvironmentVariables []string
+	Secrets              []string
 }
 
 type createReq struct {
@@ -31,7 +34,7 @@ func init() {
 			Create a GitHub Runtime app
 		`),
 		Example: heredoc.Doc(`
-			$ gh runtime create --app my-app
+			$ gh runtime create --app my-app --env key1=value1 --env key2=value2 --secret key3=value3 --secret key4=value4
 			# => Creates the app named 'my-app'
 		`),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -42,12 +45,32 @@ func init() {
 
 			// Construct the request body
 			requestBody := createReq{
-				EnvironmentVariables: map[string]string{
-					"EXAMPLE_ENV": "value1",
-				},
-				Secrets: map[string]string{
-					"SECRET_KEY": "secret_value",
-				},
+				EnvironmentVariables: map[string]string{},
+				Secrets:              map[string]string{},
+			}
+
+			for _, pair := range createCmdFlags.EnvironmentVariables {
+				parts := strings.SplitN(pair, "=", 2)
+				if len(parts) == 2 {
+					key := parts[0]
+					value := parts[1]
+					requestBody.EnvironmentVariables[key] = value
+				} else {
+					fmt.Printf("Error: Invalid environment variable format (%s). Must be in the form 'key=value'\n", pair)
+					return
+				}
+			}
+
+			for _, pair := range createCmdFlags.Secrets {
+				parts := strings.SplitN(pair, "=", 2)
+				if len(parts) == 2 {
+					key := parts[0]
+					value := parts[1]
+					requestBody.Secrets[key] = value
+				} else {
+					fmt.Printf("Error: Invalid environment variable format (%s). Must be in the form 'key=value'\n", pair)
+					return
+				}
 			}
 
 			body, err := json.Marshal(requestBody)
@@ -74,5 +97,7 @@ func init() {
 	}
 
 	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app to create")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
 	rootCmd.AddCommand(createCmd)
 }
