@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
@@ -11,6 +10,10 @@ import (
 
 type getCmdFlags struct {
 	app string
+}
+
+type serverResponse struct {
+	AppUrl string `json:"app_url"`
 }
 
 func init() {
@@ -25,27 +28,25 @@ func init() {
 			$ gh runtime get --app my-app
 			# => Retrieves details of the app named 'my-app'
 		`),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if getCmdFlags.app == "" {
-				fmt.Println("Error: --app flag is required")
-				return
+				return fmt.Errorf("--app flag is required")
 			}
 
 			getUrl := fmt.Sprintf("runtime/%s/deployment", getCmdFlags.app)
 			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Println(err)
-				return
+				return fmt.Errorf("failed creating REST client: %v", err)
 			}
 
-			response := json.RawMessage{}
+			response := serverResponse{}
 			err = client.Get(getUrl, &response)
 			if err != nil {
-				fmt.Printf("Error retrieving app details: %v\n", err)
-				return
+				return fmt.Errorf("retrieving app details: %v", err)
 			}
 
-			fmt.Printf("App Details: %s\n", response)
+			fmt.Printf("%s\n", response.AppUrl)
+			return nil
 		},
 	}
 

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"os"
+
 	"github.com/github/gh-runtime-cli/cmd"
 )
 
 func main() {
-	cmd.Execute()
+	code := cmd.Execute()
+	os.Exit(int(code))
 }
