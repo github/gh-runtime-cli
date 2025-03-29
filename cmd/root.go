@@ -19,9 +19,21 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func Execute() {
+type exitCode int
+
+const (
+	exitOK      exitCode = 0
+	exitError   exitCode = 1
+	exitCancel  exitCode = 2
+	exitAuth    exitCode = 4
+	exitPending exitCode = 8
+)
+
+func Execute() exitCode {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return exitError
 	}
+
+	return exitOK
 }
