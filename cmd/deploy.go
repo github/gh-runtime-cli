@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-
+	"net/url"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -16,6 +16,7 @@ import (
 type deployCmdFlags struct {
 	dir string
 	app string
+	RevisionName string
 }
 
 func zipDirectory(sourceDir, destinationZip string) error {
@@ -131,6 +132,14 @@ func init() {
 			}
 
 			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", deployCmdFlags.app)
+			params := url.Values{}
+			if deployCmdFlags.RevisionName != "" {
+				params.Add("revision_name", deployCmdFlags.RevisionName)
+			}
+			if len(params) > 0 {
+				deploymentsUrl += "?" + params.Encode()
+			}
+
 			fmt.Printf("Deploying app to %s\n", deploymentsUrl)
 
 			// body is the full zip RAW

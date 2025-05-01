@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
+	"net/url"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -15,6 +15,7 @@ type createCmdFlags struct {
 	app                  string
 	EnvironmentVariables []string
 	Secrets              []string
+	RevisionName 	  	 string
 }
 
 type createReq struct {
@@ -80,6 +81,14 @@ func init() {
 			}
 
 			createUrl := fmt.Sprintf("runtime/%s/deployment", createCmdFlags.app)
+			params := url.Values{}
+			if createCmdFlags.RevisionName != "" {
+				params.Add("revision_name", createCmdFlags.RevisionName)
+			}
+			if len(params) > 0 {
+				createUrl += "?" + params.Encode()
+			}
+			
 			client, err := api.DefaultRESTClient()
 			if err != nil {
 				fmt.Println(err)
