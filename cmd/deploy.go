@@ -16,7 +16,7 @@ import (
 type deployCmdFlags struct {
 	dir string
 	app string
-	RevisionName string
+	revisionName string
 }
 
 func zipDirectory(sourceDir, destinationZip string) error {
@@ -133,8 +133,8 @@ func init() {
 
 			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", deployCmdFlags.app)
 			params := url.Values{}
-			if deployCmdFlags.RevisionName != "" {
-				params.Add("revision_name", deployCmdFlags.RevisionName)
+			if deployCmdFlags.revisionName != "" {
+				params.Add("revision_name", deployCmdFlags.revisionName)
 			}
 			if len(params) > 0 {
 				deploymentsUrl += "?" + params.Encode()
@@ -160,5 +160,6 @@ func init() {
 	}
 	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
 	rootCmd.AddCommand(deployCmd)
 }
