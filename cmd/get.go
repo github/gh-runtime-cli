@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"fmt"
-
+	"net/url"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 )
 
 type getCmdFlags struct {
-	app string
+	app 			string
+	revisionName 	string
 }
 
 type serverResponse struct {
@@ -34,6 +35,14 @@ func init() {
 			}
 
 			getUrl := fmt.Sprintf("runtime/%s/deployment", getCmdFlags.app)
+			params := url.Values{}
+			if getCmdFlags.revisionName != "" {
+				params.Add("revision_name", getCmdFlags.revisionName)
+			}
+			if len(params) > 0 {
+				getUrl += "?" + params.Encode()
+			}
+
 			client, err := api.DefaultRESTClient()
 			if err != nil {
 				return fmt.Errorf("failed creating REST client: %v", err)
@@ -51,5 +60,6 @@ func init() {
 	}
 
 	getCmd.Flags().StringVarP(&getCmdFlags.app, "app", "a", "", "The app to retrieve details for")
+	getCmd.Flags().StringVarP(&getCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(getCmd)
 }
