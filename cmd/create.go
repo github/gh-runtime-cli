@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
+	"net/url"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -15,6 +15,7 @@ type createCmdFlags struct {
 	app                  string
 	EnvironmentVariables []string
 	Secrets              []string
+	RevisionName 	  	 string
 }
 
 type createReq struct {
@@ -80,6 +81,14 @@ func init() {
 			}
 
 			createUrl := fmt.Sprintf("runtime/%s/deployment", createCmdFlags.app)
+			params := url.Values{}
+			if createCmdFlags.RevisionName != "" {
+				params.Add("revision_name", createCmdFlags.RevisionName)
+			}
+			if len(params) > 0 {
+				createUrl += "?" + params.Encode()
+			}
+			
 			client, err := api.DefaultRESTClient()
 			if err != nil {
 				fmt.Println(err)
@@ -99,5 +108,6 @@ func init() {
 	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app to create")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
+	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(createCmd)
 }
