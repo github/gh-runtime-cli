@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-
+	"net/url"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -10,6 +10,7 @@ import (
 
 type deleteCmdFlags struct {
 	app string
+	revisionName string
 }
 
 type deleteResp struct {
@@ -34,6 +35,14 @@ func init() {
 			}
 
 			deleteUrl := fmt.Sprintf("runtime/%s/deployment", deleteCmdFlags.app)
+			params := url.Values{}
+			if deleteCmdFlags.revisionName != "" {
+				params.Add("revision_name", deleteCmdFlags.revisionName)
+			}
+			if len(params) > 0 {
+				deleteUrl += "?" + params.Encode()
+			}
+			
 			client, err := api.DefaultRESTClient()
 			if err != nil {
 				fmt.Println(err)
@@ -53,5 +62,6 @@ func init() {
 	}
 
 	deleteCmd.Flags().StringVarP(&deleteCmdFlags.app, "app", "a", "", "The app to delete")
+	deleteCmd.Flags().StringVarP(&deleteCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(deleteCmd)
 }
