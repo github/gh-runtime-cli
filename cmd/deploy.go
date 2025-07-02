@@ -5,17 +5,18 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
-	"net/url"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 )
 
 type deployCmdFlags struct {
-	dir string
-	app string
+	dir          string
+	app          string
 	revisionName string
 }
 
@@ -95,40 +96,34 @@ func init() {
 			$ gh runtime deploy --dir ./dist --app my-app
 			# => Deploys the contents of the 'dist' directory to the app named 'my-app'
 		`),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if deployCmdFlags.dir == "" {
-				fmt.Println("Error: --dir flag is required")
-				os.Exit(1)
+				return fmt.Errorf("--dir flag is required")
 			}
 			if deployCmdFlags.app == "" {
-				fmt.Println("Error: --app flag is required")
-				os.Exit(1)
+				return fmt.Errorf("--app flag is required")
 			}
 
 			if _, err := os.Stat(deployCmdFlags.dir); os.IsNotExist(err) {
-				fmt.Printf("Error: directory '%s' does not exist\n", deployCmdFlags.dir)
-				os.Exit(1)
+				return fmt.Errorf("directory '%s' does not exist", deployCmdFlags.dir)
 			}
 
 			_, err := os.ReadDir(deployCmdFlags.dir)
 			if err != nil {
-				fmt.Printf("Error reading directory '%s': %v\n", deployCmdFlags.dir, err)
-				os.Exit(1)
+				return fmt.Errorf("error reading directory '%s': %v", deployCmdFlags.dir, err)
 			}
 
 			// Zip the directory
 			zipPath := fmt.Sprintf("%s.zip", deployCmdFlags.dir)
 			err = zipDirectory(deployCmdFlags.dir, zipPath)
 			if err != nil {
-				fmt.Printf("Error zipping directory '%s': %v\n", deployCmdFlags.dir, err)
-				os.Exit(1)
+				return fmt.Errorf("error zipping directory '%s': %v", deployCmdFlags.dir, err)
 			}
 			defer os.Remove(zipPath)
 
 			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				return fmt.Errorf("error creating REST client: %v", err)
 			}
 
 			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", deployCmdFlags.app)
@@ -145,17 +140,16 @@ func init() {
 			// body is the full zip RAW
 			body, err := os.ReadFile(zipPath)
 			if err != nil {
-				fmt.Printf("Error reading zip file '%s': %v\n", zipPath, err)
-				os.Exit(1)
+				return fmt.Errorf("error reading zip file '%s': %v", zipPath, err)
 			}
 
 			err = client.Post(deploymentsUrl, bytes.NewReader(body), nil)
 			if err != nil {
-				fmt.Printf("Error deploying app: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error deploying app: %v", err)
 			}
 
 			fmt.Printf("Successfully deployed app\n")
+			return nil
 		},
 	}
 	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
