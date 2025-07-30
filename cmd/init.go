@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -32,15 +31,15 @@ func init() {
 		Short: "Initialize a local project for GitHub Spark",
 		Long: heredoc.Doc(`
 			Initialize a local project to connect it to a GitHub Spark app.
-			This creates a runtime.json configuration file that binds your local project
+			This creates a runtime.config.json configuration file that binds your local project
 			to a remote Spark app. You must specify an app name to validate the app exists.
-			Optionally specify an output path where the runtime.json file should be created.
+			Optionally specify an output path where the runtime.config.json file should be created.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime init --app my-spark-app
 			# => Binds local project to the Spark app 'my-spark-app'
 			
-			$ gh runtime init --app my-spark-app --out ./config/runtime.json
+			$ gh runtime init --app my-spark-app --out ./config/runtime.config.json
 			# => Creates configuration at the specified path
 			
 			$ gh runtime init --app my-spark-app --out ./my-config.json
@@ -54,12 +53,7 @@ func init() {
 			// Determine the identifier to use for the API call
 			identifier := initCmdFlags.app
 
-			// Check if app exists by making a GET request similar to get command
 			getUrl := fmt.Sprintf("runtime/%s/deployment", identifier)
-			params := url.Values{}
-			if len(params) > 0 {
-				getUrl += "?" + params.Encode()
-			}
 
 			client, err := api.DefaultRESTClient()
 			if err != nil {
@@ -77,8 +71,7 @@ func init() {
 				App: initCmdFlags.app,
 			}
 
-			// Determine the output file path
-			configPath := "runtime.json"
+			configPath := "runtime.config.json"
 			if initCmdFlags.out != "" {
 				configPath = initCmdFlags.out
 				// Create directory if it doesn't exist
@@ -91,7 +84,6 @@ func init() {
 				}
 			}
 
-			// Create runtime.json file
 			configBytes, err := json.MarshalIndent(config, "", "  ")
 			if err != nil {
 				return fmt.Errorf("error creating configuration: %v", err)
@@ -108,6 +100,6 @@ func init() {
 	}
 
 	initCmd.Flags().StringVarP(&initCmdFlags.app, "app", "a", "", "The app name to initialize")
-	initCmd.Flags().StringVarP(&initCmdFlags.out, "out", "o", "", "The output path for the runtime.json file (default: runtime.json in current directory)")
+	initCmd.Flags().StringVarP(&initCmdFlags.out, "out", "o", "", "The output path for the runtime.config.json file (default: runtime.config.json in current directory)")
 	rootCmd.AddCommand(initCmd)
 }
