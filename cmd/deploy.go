@@ -94,7 +94,7 @@ func init() {
 			Deploys a directory to a GitHub Runtime app
 		`),
 		Example: heredoc.Doc(`
-			$ gh runtime deploy --dir ./dist --app my-app [--revision-name <revision_name>] [--sha <sha>]
+			$ gh runtime deploy --dir ./dist --app my-app [--sha <sha>]
 			# => Deploys the contents of the 'dist' directory to the app named 'my-app'.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
