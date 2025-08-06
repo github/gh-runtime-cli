@@ -18,6 +18,7 @@ type deployCmdFlags struct {
 	dir          string
 	app          string
 	revisionName string
+	sha          string
 }
 
 func zipDirectory(sourceDir, destinationZip string) error {
@@ -93,8 +94,8 @@ func init() {
 			Deploys a directory to a GitHub Runtime app
 		`),
 		Example: heredoc.Doc(`
-			$ gh runtime deploy --dir ./dist --app my-app
-			# => Deploys the contents of the 'dist' directory to the app named 'my-app'
+			$ gh runtime deploy --dir ./dist --app my-app [--revision-name <revision_name>] [--sha <sha>]
+			# => Deploys the contents of the 'dist' directory to the app named 'my-app'.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if deployCmdFlags.dir == "" {
@@ -128,9 +129,15 @@ func init() {
 
 			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", deployCmdFlags.app)
 			params := url.Values{}
+
 			if deployCmdFlags.revisionName != "" {
 				params.Add("revision_name", deployCmdFlags.revisionName)
 			}
+
+			if deployCmdFlags.sha != "" {
+				params.Add("revision", deployCmdFlags.sha)
+			}
+
 			if len(params) > 0 {
 				deploymentsUrl += "?" + params.Encode()
 			}
@@ -155,5 +162,7 @@ func init() {
 	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.sha, "sha", "s", "", "SHA of the app being deployed")
+
 	rootCmd.AddCommand(deployCmd)
 }
