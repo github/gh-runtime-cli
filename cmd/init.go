@@ -66,11 +66,6 @@ func init() {
 				return fmt.Errorf("app '%s' does not exist or is not accessible: %v", identifier, err)
 			}
 
-			// Create runtime config
-			config := runtimeConfig{
-				App: initCmdFlags.app,
-			}
-
 			configPath := "runtime.config.json"
 			if initCmdFlags.out != "" {
 				configPath = initCmdFlags.out
@@ -83,6 +78,27 @@ func init() {
 					}
 				}
 			}
+
+			// Read existing config if it exists, otherwise create new config
+			var config map[string]interface{}
+			if _, err := os.Stat(configPath); err == nil {
+				// File exists, read and update it
+				existingConfigBytes, err := os.ReadFile(configPath)
+				if err != nil {
+					return fmt.Errorf("error reading existing configuration file: %v", err)
+				}
+				
+				err = json.Unmarshal(existingConfigBytes, &config)
+				if err != nil {
+					return fmt.Errorf("error parsing existing configuration file: %v", err)
+				}
+			} else {
+				// Create new config map
+				config = make(map[string]interface{})
+			}
+			
+			// Update the app field
+			config["app"] = initCmdFlags.app
 
 			configBytes, err := json.MarshalIndent(config, "", "  ")
 			if err != nil {
