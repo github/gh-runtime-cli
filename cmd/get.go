@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"net/url"
-	"os"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -42,30 +41,9 @@ func init() {
 			# => Retrieves details using app name from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appName := getCmdFlags.app
-
-			// If config file is provided, read app name from it
-			if getCmdFlags.config != "" {
-				configApp, err := config.ReadRuntimeConfig(getCmdFlags.config)
-				if err != nil {
-					return err
-				}
-				if appName == "" {
-					appName = configApp
-				}
-			} else if appName == "" {
-				// Try to read from default config file if neither --app nor --config is provided
-				if _, err := os.Stat("runtime.config.json"); err == nil {
-					configApp, err := config.ReadRuntimeConfig("runtime.config.json")
-					if err != nil {
-						return fmt.Errorf("found runtime.config.json but failed to read it: %v", err)
-					}
-					appName = configApp
-				}
-			}
-
-			if appName == "" {
-				return fmt.Errorf("--app flag is required, --config must be specified, or runtime.config.json must exist in current directory")
+			appName, err := config.ResolveAppName(getCmdFlags.app, getCmdFlags.config)
+			if err != nil {
+				return err
 			}
 
 			getUrl := fmt.Sprintf("runtime/%s/deployment", appName)

@@ -112,37 +112,16 @@ func init() {
 				return fmt.Errorf("--dir flag is required")
 			}
 
-			appName := deployCmdFlags.app
-
-			// If config file is provided, read app name from it
-			if deployCmdFlags.config != "" {
-				configApp, err := config.ReadRuntimeConfig(deployCmdFlags.config)
-				if err != nil {
-					return err
-				}
-				if appName == "" {
-					appName = configApp
-				}
-			} else if appName == "" {
-				// Try to read from default config file if neither --app nor --config is provided
-				if _, err := os.Stat("runtime.config.json"); err == nil {
-					configApp, err := config.ReadRuntimeConfig("runtime.config.json")
-					if err != nil {
-						return fmt.Errorf("found runtime.config.json but failed to read it: %v", err)
-					}
-					appName = configApp
-				}
-			}
-
-			if appName == "" {
-				return fmt.Errorf("--app flag is required, --config must be specified, or runtime.config.json must exist in current directory")
+			appName, err := config.ResolveAppName(deployCmdFlags.app, deployCmdFlags.config)
+			if err != nil {
+				return err
 			}
 
 			if _, err := os.Stat(deployCmdFlags.dir); os.IsNotExist(err) {
 				return fmt.Errorf("directory '%s' does not exist", deployCmdFlags.dir)
 			}
 
-			_, err := os.ReadDir(deployCmdFlags.dir)
+			_, err = os.ReadDir(deployCmdFlags.dir)
 			if err != nil {
 				return fmt.Errorf("error reading directory '%s': %v", deployCmdFlags.dir, err)
 			}
