@@ -3,14 +3,18 @@ package cmd
 import (
 	"fmt"
 	"net/url"
+	"os"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/github/gh-runtime-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
 type getCmdFlags struct {
-	app 			string
-	revisionName 	string
+	app          string
+	revisionName string
+	config       string
 }
 
 type serverResponse struct {
@@ -23,18 +27,48 @@ func init() {
 		Use:   "get",
 		Short: "Get details of a GitHub Runtime app",
 		Long: heredoc.Doc(`
-			Get details of a GitHub Runtime app
+			Get details of a GitHub Runtime app.
+			You can specify the app name using --app flag, --config flag to read from a runtime config file,
+			or it will automatically read from runtime.config.json in the current directory if it exists.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime get --app my-app
 			# => Retrieves details of the app named 'my-app'
+			
+			$ gh runtime get --config runtime.config.json
+			# => Retrieves details using app name from the config file.
+			
+			$ gh runtime get
+			# => Retrieves details using app name from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if getCmdFlags.app == "" {
-				return fmt.Errorf("--app flag is required")
+			appName := getCmdFlags.app
+
+			// If config file is provided, read app name from it
+			if getCmdFlags.config != "" {
+				configApp, err := config.ReadRuntimeConfig(getCmdFlags.config)
+				if err != nil {
+					return err
+				}
+				if appName == "" {
+					appName = configApp
+				}
+			} else if appName == "" {
+				// Try to read from default config file if neither --app nor --config is provided
+				if _, err := os.Stat("runtime.config.json"); err == nil {
+					configApp, err := config.ReadRuntimeConfig("runtime.config.json")
+					if err != nil {
+						return fmt.Errorf("found runtime.config.json but failed to read it: %v", err)
+					}
+					appName = configApp
+				}
 			}
 
-			getUrl := fmt.Sprintf("runtime/%s/deployment", getCmdFlags.app)
+			if appName == "" {
+				return fmt.Errorf("--app flag is required, --config must be specified, or runtime.config.json must exist in current directory")
+			}
+
+			getUrl := fmt.Sprintf("runtime/%s/deployment", appName)
 			params := url.Values{}
 			if getCmdFlags.revisionName != "" {
 				params.Add("revision_name", getCmdFlags.revisionName)
@@ -60,6 +94,7 @@ func init() {
 	}
 
 	getCmd.Flags().StringVarP(&getCmdFlags.app, "app", "a", "", "The app to retrieve details for")
+	getCmd.Flags().StringVarP(&getCmdFlags.config, "config", "c", "", "Path to runtime config file")
 	getCmd.Flags().StringVarP(&getCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(getCmd)
 }

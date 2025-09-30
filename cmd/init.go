@@ -8,16 +8,13 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/github/gh-runtime-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
 type initCmdFlags struct {
 	app string
 	out string
-}
-
-type runtimeConfig struct {
-	App string `json:"app"`
 }
 
 type appResponse struct {
@@ -67,7 +64,7 @@ func init() {
 			}
 
 			// Create runtime config
-			config := runtimeConfig{
+			configStruct := config.RuntimeConfig{
 				App: initCmdFlags.app,
 			}
 
@@ -84,7 +81,7 @@ func init() {
 				}
 			}
 
-			configBytes, err := json.MarshalIndent(config, "", "  ")
+			configBytes, err := json.MarshalIndent(configStruct, "", "  ")
 			if err != nil {
 				return fmt.Errorf("error creating configuration: %v", err)
 			}
