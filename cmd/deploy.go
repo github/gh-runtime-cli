@@ -11,6 +11,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/github/gh-runtime-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ type deployCmdFlags struct {
 	app          string
 	revisionName string
 	sha          string
+	config       string
 }
 
 func zipDirectory(sourceDir, destinationZip string) error {
@@ -91,25 +93,35 @@ func init() {
 		Use:   "deploy",
 		Short: "Deploy app to GitHub Runtime",
 		Long: heredoc.Doc(`
-			Deploys a directory to a GitHub Runtime app
+			Deploys a directory to a GitHub Runtime app.
+			You can specify the app name using --app flag, --config flag to read from a runtime config file,
+			or it will automatically read from runtime.config.json in the current directory if it exists.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime deploy --dir ./dist --app my-app [--sha <sha>]
 			# => Deploys the contents of the 'dist' directory to the app named 'my-app'.
+			
+			$ gh runtime deploy --dir ./dist --config runtime.config.json
+			# => Deploys using app name from the config file.
+			
+			$ gh runtime deploy --dir ./dist
+			# => Deploys using app name from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if deployCmdFlags.dir == "" {
 				return fmt.Errorf("--dir flag is required")
 			}
-			if deployCmdFlags.app == "" {
-				return fmt.Errorf("--app flag is required")
+
+			appName, err := config.ResolveAppName(deployCmdFlags.app, deployCmdFlags.config)
+			if err != nil {
+				return err
 			}
 
 			if _, err := os.Stat(deployCmdFlags.dir); os.IsNotExist(err) {
 				return fmt.Errorf("directory '%s' does not exist", deployCmdFlags.dir)
 			}
 
-			_, err := os.ReadDir(deployCmdFlags.dir)
+			_, err = os.ReadDir(deployCmdFlags.dir)
 			if err != nil {
 				return fmt.Errorf("error reading directory '%s': %v", deployCmdFlags.dir, err)
 			}
@@ -127,7 +139,7 @@ func init() {
 				return fmt.Errorf("error creating REST client: %v", err)
 			}
 
-			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", deployCmdFlags.app)
+			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", appName)
 			params := url.Values{}
 
 			if deployCmdFlags.revisionName != "" {
@@ -161,6 +173,7 @@ func init() {
 	}
 	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.config, "config", "c", "", "Path to runtime config file")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.sha, "sha", "s", "", "SHA of the app being deployed")
 
