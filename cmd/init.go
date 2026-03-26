@@ -21,6 +21,39 @@ type appResponse struct {
 	AppUrl string `json:"app_url"`
 }
 
+// writeRuntimeConfig writes a runtime.config.json file for the given app.
+// If outPath is empty, it defaults to "runtime.config.json" in the current directory.
+func writeRuntimeConfig(app string, outPath string) error {
+	configStruct := config.RuntimeConfig{
+		App: app,
+	}
+
+	configPath := "runtime.config.json"
+	if outPath != "" {
+		configPath = outPath
+		outputDir := filepath.Dir(configPath)
+		if outputDir != "." {
+			err := os.MkdirAll(outputDir, 0755)
+			if err != nil {
+				return fmt.Errorf("error creating directory '%s': %v", outputDir, err)
+			}
+		}
+	}
+
+	configBytes, err := json.MarshalIndent(configStruct, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error creating configuration: %v", err)
+	}
+
+	err = os.WriteFile(configPath, configBytes, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing configuration file: %v", err)
+	}
+
+	fmt.Printf("Successfully initialized local project for Spark app '%s' at '%s'\n", app, configPath)
+	return nil
+}
+
 func init() {
 	initCmdFlags := initCmdFlags{}
 	initCmd := &cobra.Command{
@@ -47,7 +80,6 @@ func init() {
 				return fmt.Errorf("--app flag is required")
 			}
 
-			// Determine the identifier to use for the API call
 			identifier := initCmdFlags.app
 
 			getUrl := fmt.Sprintf("runtime/%s/deployment", identifier)
@@ -63,36 +95,7 @@ func init() {
 				return fmt.Errorf("app '%s' does not exist or is not accessible: %v", identifier, err)
 			}
 
-			// Create runtime config
-			configStruct := config.RuntimeConfig{
-				App: initCmdFlags.app,
-			}
-
-			configPath := "runtime.config.json"
-			if initCmdFlags.out != "" {
-				configPath = initCmdFlags.out
-				// Create directory if it doesn't exist
-				outputDir := filepath.Dir(configPath)
-				if outputDir != "." {
-					err = os.MkdirAll(outputDir, 0755)
-					if err != nil {
-						return fmt.Errorf("error creating directory '%s': %v", outputDir, err)
-					}
-				}
-			}
-
-			configBytes, err := json.MarshalIndent(configStruct, "", "  ")
-			if err != nil {
-				return fmt.Errorf("error creating configuration: %v", err)
-			}
-
-			err = os.WriteFile(configPath, configBytes, 0644)
-			if err != nil {
-				return fmt.Errorf("error writing configuration file: %v", err)
-			}
-
-			fmt.Printf("Successfully initialized local project for Spark app '%s' at '%s'\n", identifier, configPath)
-			return nil
+			return writeRuntimeConfig(initCmdFlags.app, initCmdFlags.out)
 		},
 	}
 

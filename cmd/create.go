@@ -17,6 +17,7 @@ type createCmdFlags struct {
 	EnvironmentVariables []string
 	Secrets              []string
 	RevisionName 	  	 string
+	Init                 bool
 }
 
 type createReq struct {
@@ -104,6 +105,14 @@ func init() {
 			}
 
 			fmt.Printf("App created: %s\n", response.AppUrl) // TODO pretty print details
+
+			if createCmdFlags.Init {
+				err = writeRuntimeConfig(createCmdFlags.app, "")
+				if err != nil {
+					fmt.Printf("Error initializing config: %v\n", err)
+					return
+				}
+			}
 		},
 	}
 
@@ -111,5 +120,6 @@ func init() {
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
 	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
+	createCmd.Flags().BoolVar(&createCmdFlags.Init, "init", false, "Initialize a runtime.config.json file in the current directory after creating the app")
 	rootCmd.AddCommand(createCmd)
 }
