@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"net/url"
+	"strings"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -24,6 +25,7 @@ type createReq struct {
 }
 
 type createResp struct {
+	AppUrl string `json:"app_url"`
 }
 
 func init() {
@@ -94,14 +96,14 @@ func init() {
 				fmt.Println(err)
 				return
 			}
-			var response string
+			response := createResp{}
 			err = client.Put(createUrl, bytes.NewReader(body), &response)
 			if err != nil {
 				fmt.Printf("Error creating app: %v\n", err)
 				return
 			}
 
-			fmt.Printf("App created: %s\n", response) // TODO pretty print details
+			fmt.Printf("App created: %s\n", response.AppUrl) // TODO pretty print details
 		},
 	}
 
