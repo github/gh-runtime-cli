@@ -16,10 +16,10 @@ type createCmdFlags struct {
 	app                  string
 	name                 string
 	visibility           string
-	EnvironmentVariables []string
-	Secrets              []string
-	RevisionName 	  	 string
-	Init                 bool
+	environmentVariables []string
+	secrets              []string
+	revisionName         string
+	init                 bool
 }
 
 type createReq struct {
@@ -71,10 +71,10 @@ func init() {
 	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app ID to create")
 	createCmd.Flags().StringVarP(&createCmdFlags.name, "name", "n", "", "The name for the app")
 	createCmd.Flags().StringVarP(&createCmdFlags.visibility, "visibility", "v", "", "The visibility of the app (e.g. 'only_owner' or 'github')")
-	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
-	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
-	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
-	createCmd.Flags().BoolVar(&createCmdFlags.Init, "init", false, "Initialize a runtime.config.json file in the current directory after creating the app")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.environmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
+	createCmd.Flags().StringVarP(&createCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
+	createCmd.Flags().BoolVar(&createCmdFlags.init, "init", false, "Initialize a runtime.config.json file in the current directory after creating the app")
 	rootCmd.AddCommand(createCmd)
 }
 
@@ -90,7 +90,7 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 		Secrets:              map[string]string{},
 	}
 
-	for _, pair := range flags.EnvironmentVariables {
+	for _, pair := range flags.environmentVariables {
 		parts := strings.SplitN(pair, "=", 2)
 		if len(parts) == 2 {
 			requestBody.EnvironmentVariables[parts[0]] = parts[1]
@@ -99,7 +99,7 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 		}
 	}
 
-	for _, pair := range flags.Secrets {
+	for _, pair := range flags.secrets {
 		parts := strings.SplitN(pair, "=", 2)
 		if len(parts) == 2 {
 			requestBody.Secrets[parts[0]] = parts[1]
@@ -114,15 +114,15 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 	}
 
 	var createUrl string
-	if flags.name != "" {
-		createUrl = "runtime"
-	} else {
+	if flags.app != "" {
 		createUrl = fmt.Sprintf("runtime/%s/deployment", flags.app)
+	} else {
+		createUrl = "runtime"
 	}
 
 	params := url.Values{}
-	if flags.RevisionName != "" {
-		params.Add("revision_name", flags.RevisionName)
+	if flags.revisionName != "" {
+		params.Add("revision_name", flags.revisionName)
 	}
 	if len(params) > 0 {
 		createUrl += "?" + params.Encode()
@@ -134,7 +134,7 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 		return createResp{}, fmt.Errorf("error creating app: %v", err)
 	}
 
-	if flags.Init {
+	if flags.init {
 		if response.ID == "" {
 			return response, fmt.Errorf("error initializing config: server did not return an app ID")
 		}

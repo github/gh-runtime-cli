@@ -28,13 +28,13 @@ func TestRunCreate_NoAppOrName(t *testing.T) {
 
 func TestRunCreate_InvalidEnvVarFormat(t *testing.T) {
 	client := &mockRESTClient{}
-	_, err := runCreate(client, createCmdFlags{app: "my-app", EnvironmentVariables: []string{"BADFORMAT"}})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", environmentVariables: []string{"BADFORMAT"}})
 	require.ErrorContains(t, err, "invalid environment variable format")
 }
 
 func TestRunCreate_InvalidSecretFormat(t *testing.T) {
 	client := &mockRESTClient{}
-	_, err := runCreate(client, createCmdFlags{app: "my-app", Secrets: []string{"NOSEPARATOR"}})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", secrets: []string{"NOSEPARATOR"}})
 	require.ErrorContains(t, err, "invalid secret format")
 }
 
@@ -42,7 +42,7 @@ func TestRunCreate_APIError(t *testing.T) {
 	client := &mockRESTClient{
 		putFunc: mockPutError("server error"),
 	}
-	_, err := runCreate(client, createCmdFlags{app: "my-app", EnvironmentVariables: []string{"K=V"}})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", environmentVariables: []string{"K=V"}})
 	require.ErrorContains(t, err, "error creating app")
 }
 
@@ -60,8 +60,8 @@ func TestRunCreate_Success(t *testing.T) {
 
 	resp, err := runCreate(client, createCmdFlags{
 		app:                  "my-app",
-		EnvironmentVariables: []string{"KEY1=val1", "KEY2=val2"},
-		Secrets:              []string{"SECRET=sval"},
+		environmentVariables: []string{"KEY1=val1", "KEY2=val2"},
+		secrets:              []string{"SECRET=sval"},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "https://my-app.example.com", resp.AppUrl)
@@ -83,7 +83,7 @@ func TestRunCreate_WithRevisionName(t *testing.T) {
 		},
 	}
 
-	_, err := runCreate(client, createCmdFlags{app: "my-app", RevisionName: "v2"})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", revisionName: "v2"})
 	require.NoError(t, err)
 	assert.Contains(t, capturedPath, "revision_name=v2")
 }
@@ -101,7 +101,7 @@ func TestRunCreate_WithInit(t *testing.T) {
 		},
 	}
 
-	resp, err := runCreate(client, createCmdFlags{app: "init-app", Init: true})
+	resp, err := runCreate(client, createCmdFlags{app: "init-app", init: true})
 	require.NoError(t, err)
 	assert.Equal(t, "https://init-app.example.com", resp.AppUrl)
 
@@ -120,7 +120,7 @@ func TestRunCreate_EnvVarWithEqualsInValue(t *testing.T) {
 		},
 	}
 
-	_, err := runCreate(client, createCmdFlags{app: "my-app", EnvironmentVariables: []string{"KEY=val=with=equals"}})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", environmentVariables: []string{"KEY=val=with=equals"}})
 	require.NoError(t, err)
 
 	var req createReq
@@ -151,6 +151,28 @@ func TestRunCreate_WithName(t *testing.T) {
 	assert.Equal(t, "my-new-app", req.Name)
 }
 
+func TestRunCreate_WithNameAndApp(t *testing.T) {
+	var capturedPath string
+	var capturedBody []byte
+	client := &mockRESTClient{
+		putFunc: func(path string, body io.Reader, resp interface{}) error {
+			capturedPath = path
+			capturedBody, _ = io.ReadAll(body)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com", ID: "app-123"}, resp)
+			return nil
+		},
+	}
+
+	resp, err := runCreate(client, createCmdFlags{app: "my-app", name: "my-new-name"})
+	require.NoError(t, err)
+	assert.Equal(t, "https://my-app.example.com", resp.AppUrl)
+	assert.Equal(t, "runtime/my-app/deployment", capturedPath)
+
+	var req createReq
+	json.Unmarshal(capturedBody, &req)
+	assert.Equal(t, "my-new-name", req.Name)
+}
+
 func TestRunCreate_WithNameAndInit(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -166,7 +188,7 @@ func TestRunCreate_WithNameAndInit(t *testing.T) {
 		},
 	}
 
-	_, err := runCreate(client, createCmdFlags{name: "named-app", Init: true})
+	_, err := runCreate(client, createCmdFlags{name: "named-app", init: true})
 	require.NoError(t, err)
 
 	var req createReq
@@ -218,6 +240,6 @@ func TestRunCreate_InitWithoutIDInResponse(t *testing.T) {
 		},
 	}
 
-	_, err := runCreate(client, createCmdFlags{app: "my-app", Init: true})
+	_, err := runCreate(client, createCmdFlags{app: "my-app", init: true})
 	require.ErrorContains(t, err, "server did not return an app ID")
 }
