@@ -15,6 +15,15 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+
+      - name: OIDC Setup for goproxy
+        uses: github/setup-goproxy@v1.1.0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
       - name: Build and test
         run: |
           go build
