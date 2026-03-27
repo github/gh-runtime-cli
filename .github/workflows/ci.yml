@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # for setup-goproxy
   contents: read
   packages: read
 
@@ -16,9 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: OIDC Setup for goproxy
-        uses: github/setup-goproxy@v1.1.0
 
       - uses: actions/setup-go@v6
         with:
