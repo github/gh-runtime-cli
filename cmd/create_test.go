@@ -130,9 +130,11 @@ func TestRunCreate_EnvVarWithEqualsInValue(t *testing.T) {
 
 func TestRunCreate_WithName(t *testing.T) {
 	var capturedPath string
+	var capturedBody []byte
 	client := &mockRESTClient{
-		putFunc: func(path string, _ io.Reader, resp interface{}) error {
+		putFunc: func(path string, body io.Reader, resp interface{}) error {
 			capturedPath = path
+			capturedBody, _ = io.ReadAll(body)
 			buildCreateResponse(createResp{AppUrl: "https://my-new-app.example.com", ID: "abc-123"}, resp)
 			return nil
 		},
@@ -143,6 +145,10 @@ func TestRunCreate_WithName(t *testing.T) {
 	assert.Equal(t, "https://my-new-app.example.com", resp.AppUrl)
 	assert.Equal(t, "abc-123", resp.ID)
 	assert.Equal(t, "runtime", capturedPath)
+
+	var req createReq
+	json.Unmarshal(capturedBody, &req)
+	assert.Equal(t, "my-new-app", req.Name)
 }
 
 func TestRunCreate_WithNameAndInit(t *testing.T) {
@@ -151,8 +157,10 @@ func TestRunCreate_WithNameAndInit(t *testing.T) {
 	os.Chdir(tmp)
 	defer os.Chdir(origDir)
 
+	var capturedBody []byte
 	client := &mockRESTClient{
-		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
+		putFunc: func(_ string, body io.Reader, resp interface{}) error {
+			capturedBody, _ = io.ReadAll(body)
 			buildCreateResponse(createResp{AppUrl: "https://named-app.example.com", ID: "def-456"}, resp)
 			return nil
 		},
@@ -161,9 +169,31 @@ func TestRunCreate_WithNameAndInit(t *testing.T) {
 	_, err := runCreate(client, createCmdFlags{name: "named-app", Init: true})
 	require.NoError(t, err)
 
+	var req createReq
+	json.Unmarshal(capturedBody, &req)
+	assert.Equal(t, "named-app", req.Name)
+
 	data, err := os.ReadFile("runtime.config.json")
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "def-456")
+}
+
+func TestRunCreate_WithVisibility(t *testing.T) {
+	var capturedBody []byte
+	client := &mockRESTClient{
+		putFunc: func(_ string, body io.Reader, resp interface{}) error {
+			capturedBody, _ = io.ReadAll(body)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com"}, resp)
+			return nil
+		},
+	}
+
+	_, err := runCreate(client, createCmdFlags{app: "my-app", visibility: "github"})
+	require.NoError(t, err)
+
+	var req createReq
+	json.Unmarshal(capturedBody, &req)
+	assert.Equal(t, "github", req.Visibility)
 }
 
 func TestRunCreate_ResponseWithID(t *testing.T) {

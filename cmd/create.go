@@ -15,6 +15,7 @@ import (
 type createCmdFlags struct {
 	app                  string
 	name                 string
+	visibility           string
 	EnvironmentVariables []string
 	Secrets              []string
 	RevisionName 	  	 string
@@ -22,6 +23,8 @@ type createCmdFlags struct {
 }
 
 type createReq struct {
+	Name                 string            `json:"friendly_name,omitempty"`
+	Visibility           string            `json:"visibility,omitempty"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
 	Secrets              map[string]string `json:"secrets"`
 }
@@ -66,7 +69,8 @@ func init() {
 	}
 
 	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app ID to create")
-	createCmd.Flags().StringVarP(&createCmdFlags.name, "name", "n", "", "The name for the new app")
+	createCmd.Flags().StringVarP(&createCmdFlags.name, "name", "n", "", "The name for the app")
+	createCmd.Flags().StringVarP(&createCmdFlags.visibility, "visibility", "v", "", "The visibility of the app (e.g. 'only_owner' or 'github')")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
 	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
@@ -80,6 +84,8 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 	}
 
 	requestBody := createReq{
+		Name:                 flags.name,
+		Visibility:           flags.visibility,
 		EnvironmentVariables: map[string]string{},
 		Secrets:              map[string]string{},
 	}
