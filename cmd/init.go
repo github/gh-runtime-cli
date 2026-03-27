@@ -21,6 +21,58 @@ type appResponse struct {
 	AppUrl string `json:"app_url"`
 }
 
+func init() {
+	initCmdFlags := initCmdFlags{}
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize a local project for GitHub Spark",
+		Long: heredoc.Doc(`
+			Initialize a local project to connect it to a GitHub Spark app.
+			This creates a runtime.config.json configuration file that binds your local project
+			to a remote Spark app. You must specify an app name to validate the app exists.
+			Optionally specify an output path where the runtime.config.json file should be created.
+		`),
+		Example: heredoc.Doc(`
+			$ gh runtime init --app my-spark-app
+			# => Binds local project to the Spark app 'my-spark-app'
+			
+			$ gh runtime init --app my-spark-app --out ./config/runtime.config.json
+			# => Creates configuration at the specified path
+			
+			$ gh runtime init --app my-spark-app --out ./my-config.json
+			# => Creates configuration with a custom filename
+		`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := api.DefaultRESTClient()
+			if err != nil {
+				return fmt.Errorf("failed creating REST client: %v", err)
+			}
+
+			return runInit(client, initCmdFlags)
+		},
+	}
+
+	initCmd.Flags().StringVarP(&initCmdFlags.app, "app", "a", "", "The app name to initialize")
+	initCmd.Flags().StringVarP(&initCmdFlags.out, "out", "o", "", "The output path for the runtime.config.json file (default: runtime.config.json in current directory)")
+	rootCmd.AddCommand(initCmd)
+}
+
+func runInit(client restClient, flags initCmdFlags) error {
+	if flags.app == "" {
+		return fmt.Errorf("--app flag is required")
+	}
+
+	getUrl := fmt.Sprintf("runtime/%s/deployment", flags.app)
+
+	response := appResponse{}
+	err := client.Get(getUrl, &response)
+	if err != nil {
+		return fmt.Errorf("app '%s' does not exist or is not accessible: %v", flags.app, err)
+	}
+
+	return writeRuntimeConfig(flags.app, flags.out)
+}
+
 // writeRuntimeConfig writes a runtime.config.json file for the given app.
 // If outPath is empty, it defaults to "runtime.config.json" in the current directory.
 func writeRuntimeConfig(app string, outPath string) error {
@@ -52,54 +104,4 @@ func writeRuntimeConfig(app string, outPath string) error {
 
 	fmt.Printf("Successfully initialized local project for Spark app '%s' at '%s'\n", app, configPath)
 	return nil
-}
-
-func init() {
-	initCmdFlags := initCmdFlags{}
-	initCmd := &cobra.Command{
-		Use:   "init",
-		Short: "Initialize a local project for GitHub Spark",
-		Long: heredoc.Doc(`
-			Initialize a local project to connect it to a GitHub Spark app.
-			This creates a runtime.config.json configuration file that binds your local project
-			to a remote Spark app. You must specify an app name to validate the app exists.
-			Optionally specify an output path where the runtime.config.json file should be created.
-		`),
-		Example: heredoc.Doc(`
-			$ gh runtime init --app my-spark-app
-			# => Binds local project to the Spark app 'my-spark-app'
-			
-			$ gh runtime init --app my-spark-app --out ./config/runtime.config.json
-			# => Creates configuration at the specified path
-			
-			$ gh runtime init --app my-spark-app --out ./my-config.json
-			# => Creates configuration with a custom filename
-		`),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if initCmdFlags.app == "" {
-				return fmt.Errorf("--app flag is required")
-			}
-
-			identifier := initCmdFlags.app
-
-			getUrl := fmt.Sprintf("runtime/%s/deployment", identifier)
-
-			client, err := api.DefaultRESTClient()
-			if err != nil {
-				return fmt.Errorf("failed creating REST client: %v", err)
-			}
-
-			response := appResponse{}
-			err = client.Get(getUrl, &response)
-			if err != nil {
-				return fmt.Errorf("app '%s' does not exist or is not accessible: %v", identifier, err)
-			}
-
-			return writeRuntimeConfig(initCmdFlags.app, initCmdFlags.out)
-		},
-	}
-
-	initCmd.Flags().StringVarP(&initCmdFlags.app, "app", "a", "", "The app name to initialize")
-	initCmd.Flags().StringVarP(&initCmdFlags.out, "out", "o", "", "The output path for the runtime.config.json file (default: runtime.config.json in current directory)")
-	rootCmd.AddCommand(initCmd)
 }

@@ -41,32 +41,17 @@ func init() {
 			# => Retrieves details using app name from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appName, err := config.ResolveAppName(getCmdFlags.app, getCmdFlags.config)
-			if err != nil {
-				return err
-			}
-
-			getUrl := fmt.Sprintf("runtime/%s/deployment", appName)
-			params := url.Values{}
-			if getCmdFlags.revisionName != "" {
-				params.Add("revision_name", getCmdFlags.revisionName)
-			}
-			if len(params) > 0 {
-				getUrl += "?" + params.Encode()
-			}
-
 			client, err := api.DefaultRESTClient()
 			if err != nil {
 				return fmt.Errorf("failed creating REST client: %v", err)
 			}
 
-			response := serverResponse{}
-			err = client.Get(getUrl, &response)
+			appUrl, err := runGet(client, getCmdFlags)
 			if err != nil {
-				return fmt.Errorf("retrieving app details: %v", err)
+				return err
 			}
 
-			fmt.Printf("%s\n", response.AppUrl)
+			fmt.Printf("%s\n", appUrl)
 			return nil
 		},
 	}
@@ -75,4 +60,28 @@ func init() {
 	getCmd.Flags().StringVarP(&getCmdFlags.config, "config", "c", "", "Path to runtime config file")
 	getCmd.Flags().StringVarP(&getCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(getCmd)
+}
+
+func runGet(client restClient, flags getCmdFlags) (string, error) {
+	appName, err := config.ResolveAppName(flags.app, flags.config)
+	if err != nil {
+		return "", err
+	}
+
+	getUrl := fmt.Sprintf("runtime/%s/deployment", appName)
+	params := url.Values{}
+	if flags.revisionName != "" {
+		params.Add("revision_name", flags.revisionName)
+	}
+	if len(params) > 0 {
+		getUrl += "?" + params.Encode()
+	}
+
+	response := serverResponse{}
+	err = client.Get(getUrl, &response)
+	if err != nil {
+		return "", fmt.Errorf("retrieving app details: %v", err)
+	}
+
+	return response.AppUrl, nil
 }

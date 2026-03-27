@@ -41,78 +41,19 @@ func init() {
 			$ gh runtime create --app my-app --env key1=value1 --env key2=value2 --secret key3=value3 --secret key4=value4
 			# => Creates the app named 'my-app'
 		`),
-		Run: func(cmd *cobra.Command, args []string) {
-			if createCmdFlags.app == "" {
-				fmt.Println("Error: --app flag is required")
-				return
-			}
-
-			// Construct the request body
-			requestBody := createReq{
-				EnvironmentVariables: map[string]string{},
-				Secrets:              map[string]string{},
-			}
-
-			for _, pair := range createCmdFlags.EnvironmentVariables {
-				parts := strings.SplitN(pair, "=", 2)
-				if len(parts) == 2 {
-					key := parts[0]
-					value := parts[1]
-					requestBody.EnvironmentVariables[key] = value
-				} else {
-					fmt.Printf("Error: Invalid environment variable format (%s). Must be in the form 'key=value'\n", pair)
-					return
-				}
-			}
-
-			for _, pair := range createCmdFlags.Secrets {
-				parts := strings.SplitN(pair, "=", 2)
-				if len(parts) == 2 {
-					key := parts[0]
-					value := parts[1]
-					requestBody.Secrets[key] = value
-				} else {
-					fmt.Printf("Error: Invalid secret format (%s). Must be in the form 'key=value'\n", pair)
-					return
-				}
-			}
-
-			body, err := json.Marshal(requestBody)
-			if err != nil {
-				fmt.Printf("Error marshalling request body: %v\n", err)
-				return
-			}
-
-			createUrl := fmt.Sprintf("runtime/%s/deployment", createCmdFlags.app)
-			params := url.Values{}
-			if createCmdFlags.RevisionName != "" {
-				params.Add("revision_name", createCmdFlags.RevisionName)
-			}
-			if len(params) > 0 {
-				createUrl += "?" + params.Encode()
-			}
-			
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Println(err)
-				return
+				return fmt.Errorf("failed creating REST client: %v", err)
 			}
-			response := createResp{}
-			err = client.Put(createUrl, bytes.NewReader(body), &response)
+
+			appUrl, err := runCreate(client, createCmdFlags)
 			if err != nil {
-				fmt.Printf("Error creating app: %v\n", err)
-				return
+				return err
 			}
 
-			fmt.Printf("App created: %s\n", response.AppUrl) // TODO pretty print details
-
-			if createCmdFlags.Init {
-				err = writeRuntimeConfig(createCmdFlags.app, "")
-				if err != nil {
-					fmt.Printf("Error initializing config: %v\n", err)
-					return
-				}
-			}
+			fmt.Printf("App created: %s\n", appUrl)
+			return nil
 		},
 	}
 
@@ -122,4 +63,62 @@ func init() {
 	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
 	createCmd.Flags().BoolVar(&createCmdFlags.Init, "init", false, "Initialize a runtime.config.json file in the current directory after creating the app")
 	rootCmd.AddCommand(createCmd)
+}
+
+func runCreate(client restClient, flags createCmdFlags) (string, error) {
+	if flags.app == "" {
+		return "", fmt.Errorf("--app flag is required")
+	}
+
+	requestBody := createReq{
+		EnvironmentVariables: map[string]string{},
+		Secrets:              map[string]string{},
+	}
+
+	for _, pair := range flags.EnvironmentVariables {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			requestBody.EnvironmentVariables[parts[0]] = parts[1]
+		} else {
+			return "", fmt.Errorf("invalid environment variable format (%s). Must be in the form 'key=value'", pair)
+		}
+	}
+
+	for _, pair := range flags.Secrets {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			requestBody.Secrets[parts[0]] = parts[1]
+		} else {
+			return "", fmt.Errorf("invalid secret format (%s). Must be in the form 'key=value'", pair)
+		}
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", fmt.Errorf("error marshalling request body: %v", err)
+	}
+
+	createUrl := fmt.Sprintf("runtime/%s/deployment", flags.app)
+	params := url.Values{}
+	if flags.RevisionName != "" {
+		params.Add("revision_name", flags.RevisionName)
+	}
+	if len(params) > 0 {
+		createUrl += "?" + params.Encode()
+	}
+
+	response := createResp{}
+	err = client.Put(createUrl, bytes.NewReader(body), &response)
+	if err != nil {
+		return "", fmt.Errorf("error creating app: %v", err)
+	}
+
+	if flags.Init {
+		err = writeRuntimeConfig(flags.app, "")
+		if err != nil {
+			return response.AppUrl, fmt.Errorf("error initializing config: %v", err)
+		}
+	}
+
+	return response.AppUrl, nil
 }
