@@ -12,12 +12,13 @@ import (
 
 func TestRunGet_NoAppName(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	client := &mockRESTClient{}
-	_, err := runGet(client, getCmdFlags{})
+	_, err = runGet(client, getCmdFlags{})
 	require.ErrorContains(t, err, "--app flag is required")
 }
 
@@ -63,12 +64,13 @@ func TestRunGet_APIError(t *testing.T) {
 
 func TestRunGet_WithConfigFile(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	configPath := filepath.Join(tmp, "my-config.json")
-	os.WriteFile(configPath, []byte(`{"app":"config-app"}`), 0644)
+	require.NoError(t, os.WriteFile(configPath, []byte(`{"app":"config-app"}`), 0644))
 
 	var capturedPath string
 	client := &mockRESTClient{
@@ -86,11 +88,12 @@ func TestRunGet_WithConfigFile(t *testing.T) {
 
 func TestRunGet_DefaultConfigFile(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
-	os.WriteFile(filepath.Join(tmp, "runtime.config.json"), []byte(`{"app":"default-app"}`), 0644)
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "runtime.config.json"), []byte(`{"app":"default-app"}`), 0644))
 
 	var capturedPath string
 	client := &mockRESTClient{

@@ -90,8 +90,9 @@ func TestRunCreate_WithRevisionName(t *testing.T) {
 
 func TestRunCreate_WithInit(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	client := &mockRESTClient{
@@ -175,8 +176,9 @@ func TestRunCreate_WithNameAndApp(t *testing.T) {
 
 func TestRunCreate_WithNameAndInit(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	var capturedBody []byte
@@ -188,7 +190,7 @@ func TestRunCreate_WithNameAndInit(t *testing.T) {
 		},
 	}
 
-	_, err := runCreate(client, createCmdFlags{name: "named-app", init: true})
+	_, err = runCreate(client, createCmdFlags{name: "named-app", init: true})
 	require.NoError(t, err)
 
 	var req createReq

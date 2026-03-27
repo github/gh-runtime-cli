@@ -27,8 +27,9 @@ func TestRunInit_AppNotAccessible(t *testing.T) {
 
 func TestRunInit_Success_DefaultPath(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	var capturedPath string
@@ -39,7 +40,7 @@ func TestRunInit_Success_DefaultPath(t *testing.T) {
 		},
 	}
 
-	err := runInit(client, initCmdFlags{app: "my-app"})
+	err = runInit(client, initCmdFlags{app: "my-app"})
 	require.NoError(t, err)
 	assert.Equal(t, "runtime/my-app/deployment", capturedPath)
 
@@ -50,8 +51,9 @@ func TestRunInit_Success_DefaultPath(t *testing.T) {
 
 func TestRunInit_Success_CustomOutPath(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	client := &mockRESTClient{
@@ -59,7 +61,7 @@ func TestRunInit_Success_CustomOutPath(t *testing.T) {
 	}
 
 	outPath := filepath.Join(tmp, "subdir", "custom-config.json")
-	err := runInit(client, initCmdFlags{app: "my-app", out: outPath})
+	err = runInit(client, initCmdFlags{app: "my-app", out: outPath})
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(outPath)
@@ -69,15 +71,16 @@ func TestRunInit_Success_CustomOutPath(t *testing.T) {
 
 func TestRunInit_VerifiesAPIBeforeWriting(t *testing.T) {
 	tmp := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
 	client := &mockRESTClient{
 		getFunc: mockGetError("not found"),
 	}
 
-	err := runInit(client, initCmdFlags{app: "bad-app"})
+	err = runInit(client, initCmdFlags{app: "bad-app"})
 	require.Error(t, err)
 	require.NoFileExists(t, "runtime.config.json")
 }
