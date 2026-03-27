@@ -24,7 +24,7 @@ func init() {
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime delete --app my-app
-			# => Deletes the app named 'my-app'
+			# => Deletes the app with ID 'my-app'
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
@@ -42,7 +42,7 @@ func init() {
 		},
 	}
 
-	deleteCmd.Flags().StringVarP(&deleteCmdFlags.app, "app", "a", "", "The app to delete")
+	deleteCmd.Flags().StringVarP(&deleteCmdFlags.app, "app", "a", "", "The app ID to delete")
 	deleteCmd.Flags().StringVarP(&deleteCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(deleteCmd)
 }

@@ -27,18 +27,18 @@ func init() {
 		Short: "Get details of a GitHub Runtime app",
 		Long: heredoc.Doc(`
 			Get details of a GitHub Runtime app.
-			You can specify the app name using --app flag, --config flag to read from a runtime config file,
+			You can specify the app ID using --app flag, --config flag to read from a runtime config file,
 			or it will automatically read from runtime.config.json in the current directory if it exists.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime get --app my-app
-			# => Retrieves details of the app named 'my-app'
+			# => Retrieves details of the app with ID 'my-app'
 			
 			$ gh runtime get --config runtime.config.json
-			# => Retrieves details using app name from the config file.
+			# => Retrieves details using app ID from the config file.
 			
 			$ gh runtime get
-			# => Retrieves details using app name from runtime.config.json in current directory (if it exists).
+			# => Retrieves details using app ID from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
@@ -56,7 +56,7 @@ func init() {
 		},
 	}
 
-	getCmd.Flags().StringVarP(&getCmdFlags.app, "app", "a", "", "The app to retrieve details for")
+	getCmd.Flags().StringVarP(&getCmdFlags.app, "app", "a", "", "The app ID to retrieve details for")
 	getCmd.Flags().StringVarP(&getCmdFlags.config, "config", "c", "", "Path to runtime config file")
 	getCmd.Flags().StringVarP(&getCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(getCmd)

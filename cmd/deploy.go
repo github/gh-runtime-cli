@@ -30,18 +30,18 @@ func init() {
 		Short: "Deploy app to GitHub Runtime",
 		Long: heredoc.Doc(`
 			Deploys a directory to a GitHub Runtime app.
-			You can specify the app name using --app flag, --config flag to read from a runtime config file,
+			You can specify the app ID using --app flag, --config flag to read from a runtime config file,
 			or it will automatically read from runtime.config.json in the current directory if it exists.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime deploy --dir ./dist --app my-app [--sha <sha>]
-			# => Deploys the contents of the 'dist' directory to the app named 'my-app'.
+			# => Deploys the contents of the 'dist' directory to the app with ID 'my-app'.
 			
 			$ gh runtime deploy --dir ./dist --config runtime.config.json
-			# => Deploys using app name from the config file.
+			# => Deploys using app ID from the config file.
 			
 			$ gh runtime deploy --dir ./dist
-			# => Deploys using app name from runtime.config.json in current directory (if it exists).
+			# => Deploys using app ID from runtime.config.json in current directory (if it exists).
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
@@ -53,7 +53,7 @@ func init() {
 		},
 	}
 	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
-	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app ID to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.config, "config", "c", "", "Path to runtime config file")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
 	deployCmd.Flags().StringVarP(&deployCmdFlags.sha, "sha", "s", "", "SHA of the app being deployed")

@@ -10,10 +10,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunCreate_NoApp(t *testing.T) {
+func buildCreateResponse(r createResp, resp interface{}) {
+	if r.AppUrl == "" {
+		r.AppUrl = "https://test-app.example.com"
+	}
+	if r.ID == "" {
+		r.ID = "test-app-id"
+	}
+	*resp.(*createResp) = r
+}
+
+func TestRunCreate_NoAppOrName(t *testing.T) {
 	client := &mockRESTClient{}
 	_, err := runCreate(client, createCmdFlags{})
-	require.ErrorContains(t, err, "--app flag is required")
+	require.ErrorContains(t, err, "either --app or --name flag is required")
 }
 
 func TestRunCreate_InvalidEnvVarFormat(t *testing.T) {
@@ -43,17 +53,18 @@ func TestRunCreate_Success(t *testing.T) {
 		putFunc: func(path string, body io.Reader, resp interface{}) error {
 			capturedPath = path
 			capturedBody, _ = io.ReadAll(body)
-			return json.Unmarshal([]byte(`{"app_url":"https://new-app.example.com"}`), resp)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com"}, resp)
+			return nil
 		},
 	}
 
-	appUrl, err := runCreate(client, createCmdFlags{
+	resp, err := runCreate(client, createCmdFlags{
 		app:                  "my-app",
 		EnvironmentVariables: []string{"KEY1=val1", "KEY2=val2"},
 		Secrets:              []string{"SECRET=sval"},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "https://new-app.example.com", appUrl)
+	assert.Equal(t, "https://my-app.example.com", resp.AppUrl)
 	assert.Equal(t, "runtime/my-app/deployment", capturedPath)
 
 	var req createReq
@@ -65,9 +76,10 @@ func TestRunCreate_Success(t *testing.T) {
 func TestRunCreate_WithRevisionName(t *testing.T) {
 	var capturedPath string
 	client := &mockRESTClient{
-		putFunc: func(path string, body io.Reader, resp interface{}) error {
+		putFunc: func(path string, _ io.Reader, resp interface{}) error {
 			capturedPath = path
-			return json.Unmarshal([]byte(`{"app_url":"https://app.example.com"}`), resp)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com"}, resp)
+			return nil
 		},
 	}
 
@@ -83,24 +95,28 @@ func TestRunCreate_WithInit(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	client := &mockRESTClient{
-		putFunc: mockPutResponse(`{"app_url":"https://init-app.example.com"}`),
+		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
+			buildCreateResponse(createResp{AppUrl: "https://init-app.example.com", ID: "init-app-id"}, resp)
+			return nil
+		},
 	}
 
-	appUrl, err := runCreate(client, createCmdFlags{app: "init-app", Init: true})
+	resp, err := runCreate(client, createCmdFlags{app: "init-app", Init: true})
 	require.NoError(t, err)
-	assert.Equal(t, "https://init-app.example.com", appUrl)
+	assert.Equal(t, "https://init-app.example.com", resp.AppUrl)
 
 	data, err := os.ReadFile("runtime.config.json")
 	require.NoError(t, err, "expected runtime.config.json to be created")
-	assert.Contains(t, string(data), "init-app")
+	assert.Contains(t, string(data), "init-app-id")
 }
 
 func TestRunCreate_EnvVarWithEqualsInValue(t *testing.T) {
 	var capturedBody []byte
 	client := &mockRESTClient{
-		putFunc: func(path string, body io.Reader, resp interface{}) error {
+		putFunc: func(_ string, body io.Reader, resp interface{}) error {
 			capturedBody, _ = io.ReadAll(body)
-			return json.Unmarshal([]byte(`{"app_url":"https://app.example.com"}`), resp)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com"}, resp)
+			return nil
 		},
 	}
 
@@ -110,4 +126,68 @@ func TestRunCreate_EnvVarWithEqualsInValue(t *testing.T) {
 	var req createReq
 	json.Unmarshal(capturedBody, &req)
 	assert.Equal(t, "val=with=equals", req.EnvironmentVariables["KEY"])
+}
+
+func TestRunCreate_WithName(t *testing.T) {
+	var capturedPath string
+	client := &mockRESTClient{
+		putFunc: func(path string, _ io.Reader, resp interface{}) error {
+			capturedPath = path
+			buildCreateResponse(createResp{AppUrl: "https://my-new-app.example.com", ID: "abc-123"}, resp)
+			return nil
+		},
+	}
+
+	resp, err := runCreate(client, createCmdFlags{name: "my-new-app"})
+	require.NoError(t, err)
+	assert.Equal(t, "https://my-new-app.example.com", resp.AppUrl)
+	assert.Equal(t, "abc-123", resp.ID)
+	assert.Equal(t, "runtime", capturedPath)
+}
+
+func TestRunCreate_WithNameAndInit(t *testing.T) {
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmp)
+	defer os.Chdir(origDir)
+
+	client := &mockRESTClient{
+		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
+			buildCreateResponse(createResp{AppUrl: "https://named-app.example.com", ID: "def-456"}, resp)
+			return nil
+		},
+	}
+
+	_, err := runCreate(client, createCmdFlags{name: "named-app", Init: true})
+	require.NoError(t, err)
+
+	data, err := os.ReadFile("runtime.config.json")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "def-456")
+}
+
+func TestRunCreate_ResponseWithID(t *testing.T) {
+	client := &mockRESTClient{
+		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com", ID: "xyz-789"}, resp)
+			return nil
+		},
+	}
+
+	resp, err := runCreate(client, createCmdFlags{app: "my-app"})
+	require.NoError(t, err)
+	assert.Equal(t, "https://my-app.example.com", resp.AppUrl)
+	assert.Equal(t, "xyz-789", resp.ID)
+}
+
+func TestRunCreate_InitWithoutIDInResponse(t *testing.T) {
+	client := &mockRESTClient{
+		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
+			b, _ := json.Marshal(createResp{AppUrl: "https://my-app.example.com"})
+			return json.Unmarshal(b, resp)
+		},
+	}
+
+	_, err := runCreate(client, createCmdFlags{app: "my-app", Init: true})
+	require.ErrorContains(t, err, "server did not return an app ID")
 }

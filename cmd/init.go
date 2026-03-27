@@ -29,7 +29,7 @@ func init() {
 		Long: heredoc.Doc(`
 			Initialize a local project to connect it to a GitHub Spark app.
 			This creates a runtime.config.json configuration file that binds your local project
-			to a remote Spark app. You must specify an app name to validate the app exists.
+			to a remote Spark app. You must specify an app ID to validate the app exists.
 			Optionally specify an output path where the runtime.config.json file should be created.
 		`),
 		Example: heredoc.Doc(`
@@ -52,7 +52,7 @@ func init() {
 		},
 	}
 
-	initCmd.Flags().StringVarP(&initCmdFlags.app, "app", "a", "", "The app name to initialize")
+	initCmd.Flags().StringVarP(&initCmdFlags.app, "app", "a", "", "The app ID to initialize")
 	initCmd.Flags().StringVarP(&initCmdFlags.out, "out", "o", "", "The output path for the runtime.config.json file (default: runtime.config.json in current directory)")
 	rootCmd.AddCommand(initCmd)
 }
