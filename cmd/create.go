@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"net/url"
+	"strings"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -13,17 +14,24 @@ import (
 
 type createCmdFlags struct {
 	app                  string
-	EnvironmentVariables []string
-	Secrets              []string
-	RevisionName 	  	 string
+	name                 string
+	visibility           string
+	environmentVariables []string
+	secrets              []string
+	revisionName         string
+	init                 bool
 }
 
 type createReq struct {
+	Name                 string            `json:"friendly_name,omitempty"`
+	Visibility           string            `json:"visibility,omitempty"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
 	Secrets              map[string]string `json:"secrets"`
 }
 
 type createResp struct {
+	AppUrl string `json:"app_url"`
+	ID     string `json:"id"`
 }
 
 func init() {
@@ -36,78 +44,105 @@ func init() {
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime create --app my-app --env key1=value1 --env key2=value2 --secret key3=value3 --secret key4=value4
-			# => Creates the app named 'my-app'
+			# => Creates the app with the ID 'my-app'
+
+			$ gh runtime create --name my-new-app
+			# => Creates a new app with the given name
 		`),
-		Run: func(cmd *cobra.Command, args []string) {
-			if createCmdFlags.app == "" {
-				fmt.Println("Error: --app flag is required")
-				return
-			}
-
-			// Construct the request body
-			requestBody := createReq{
-				EnvironmentVariables: map[string]string{},
-				Secrets:              map[string]string{},
-			}
-
-			for _, pair := range createCmdFlags.EnvironmentVariables {
-				parts := strings.SplitN(pair, "=", 2)
-				if len(parts) == 2 {
-					key := parts[0]
-					value := parts[1]
-					requestBody.EnvironmentVariables[key] = value
-				} else {
-					fmt.Printf("Error: Invalid environment variable format (%s). Must be in the form 'key=value'\n", pair)
-					return
-				}
-			}
-
-			for _, pair := range createCmdFlags.Secrets {
-				parts := strings.SplitN(pair, "=", 2)
-				if len(parts) == 2 {
-					key := parts[0]
-					value := parts[1]
-					requestBody.Secrets[key] = value
-				} else {
-					fmt.Printf("Error: Invalid secret format (%s). Must be in the form 'key=value'\n", pair)
-					return
-				}
-			}
-
-			body, err := json.Marshal(requestBody)
-			if err != nil {
-				fmt.Printf("Error marshalling request body: %v\n", err)
-				return
-			}
-
-			createUrl := fmt.Sprintf("runtime/%s/deployment", createCmdFlags.app)
-			params := url.Values{}
-			if createCmdFlags.RevisionName != "" {
-				params.Add("revision_name", createCmdFlags.RevisionName)
-			}
-			if len(params) > 0 {
-				createUrl += "?" + params.Encode()
-			}
-			
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			var response string
-			err = client.Put(createUrl, bytes.NewReader(body), &response)
-			if err != nil {
-				fmt.Printf("Error creating app: %v\n", err)
-				return
+				return fmt.Errorf("failed creating REST client: %v", err)
 			}
 
-			fmt.Printf("App created: %s\n", response) // TODO pretty print details
+			resp, err := runCreate(client, createCmdFlags)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("App created: %s\n", resp.AppUrl)
+			if resp.ID != "" {
+				fmt.Printf("ID: %s\n", resp.ID)
+			}
+			return nil
 		},
 	}
 
-	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app to create")
-	createCmd.Flags().StringSliceVarP(&createCmdFlags.EnvironmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
-	createCmd.Flags().StringSliceVarP(&createCmdFlags.Secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
-	createCmd.Flags().StringVarP(&createCmdFlags.RevisionName, "revision-name", "r", "", "The revision name to use for the app")
+	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app ID to create")
+	createCmd.Flags().StringVarP(&createCmdFlags.name, "name", "n", "", "The name for the app")
+	createCmd.Flags().StringVarP(&createCmdFlags.visibility, "visibility", "v", "", "The visibility of the app (e.g. 'only_owner' or 'github')")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.environmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
+	createCmd.Flags().StringSliceVarP(&createCmdFlags.secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
+	createCmd.Flags().StringVarP(&createCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
+	createCmd.Flags().BoolVar(&createCmdFlags.init, "init", false, "Initialize a runtime.config.json file in the current directory after creating the app")
 	rootCmd.AddCommand(createCmd)
+}
+
+func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
+	if flags.app == "" && flags.name == "" {
+		return createResp{}, fmt.Errorf("either --app or --name flag is required")
+	}
+
+	requestBody := createReq{
+		Name:                 flags.name,
+		Visibility:           flags.visibility,
+		EnvironmentVariables: map[string]string{},
+		Secrets:              map[string]string{},
+	}
+
+	for _, pair := range flags.environmentVariables {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			requestBody.EnvironmentVariables[parts[0]] = parts[1]
+		} else {
+			return createResp{}, fmt.Errorf("invalid environment variable format (%s). Must be in the form 'key=value'", pair)
+		}
+	}
+
+	for _, pair := range flags.secrets {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			requestBody.Secrets[parts[0]] = parts[1]
+		} else {
+			return createResp{}, fmt.Errorf("invalid secret format (%s). Must be in the form 'key=value'", pair)
+		}
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		return createResp{}, fmt.Errorf("error marshalling request body: %v", err)
+	}
+
+	var createUrl string
+	if flags.app != "" {
+		createUrl = fmt.Sprintf("runtime/%s/deployment", flags.app)
+	} else {
+		createUrl = "runtime"
+	}
+
+	params := url.Values{}
+	if flags.revisionName != "" {
+		params.Add("revision_name", flags.revisionName)
+	}
+	if len(params) > 0 {
+		createUrl += "?" + params.Encode()
+	}
+
+	response := createResp{}
+	err = client.Put(createUrl, bytes.NewReader(body), &response)
+	if err != nil {
+		return createResp{}, fmt.Errorf("error creating app: %v", err)
+	}
+
+	if flags.init {
+		if response.ID == "" {
+			return response, fmt.Errorf("error initializing config: server did not return an app ID")
+		}
+		err = writeRuntimeConfig(response.ID, "")
+		if err != nil {
+			return response, fmt.Errorf("error initializing config: %v", err)
+		}
+	}
+
+	return response, nil
 }

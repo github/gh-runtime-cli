@@ -23,6 +23,101 @@ type deployCmdFlags struct {
 	config       string
 }
 
+func init() {
+	deployCmdFlags := deployCmdFlags{}
+	deployCmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploy app to GitHub Runtime",
+		Long: heredoc.Doc(`
+			Deploys a directory to a GitHub Runtime app.
+			You can specify the app ID using --app flag, --config flag to read from a runtime config file,
+			or it will automatically read from runtime.config.json in the current directory if it exists.
+		`),
+		Example: heredoc.Doc(`
+			$ gh runtime deploy --dir ./dist --app my-app [--sha <sha>]
+			# => Deploys the contents of the 'dist' directory to the app with ID 'my-app'.
+			
+			$ gh runtime deploy --dir ./dist --config runtime.config.json
+			# => Deploys using app ID from the config file.
+			
+			$ gh runtime deploy --dir ./dist
+			# => Deploys using app ID from runtime.config.json in current directory (if it exists).
+		`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := api.DefaultRESTClient()
+			if err != nil {
+				return fmt.Errorf("error creating REST client: %v", err)
+			}
+
+			return runDeploy(client, deployCmdFlags)
+		},
+	}
+	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app ID to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.config, "config", "c", "", "Path to runtime config file")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
+	deployCmd.Flags().StringVarP(&deployCmdFlags.sha, "sha", "s", "", "SHA of the app being deployed")
+
+	rootCmd.AddCommand(deployCmd)
+}
+
+func runDeploy(client restClient, flags deployCmdFlags) error {
+	if flags.dir == "" {
+		return fmt.Errorf("--dir flag is required")
+	}
+
+	appName, err := config.ResolveAppName(flags.app, flags.config)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(flags.dir); os.IsNotExist(err) {
+		return fmt.Errorf("directory '%s' does not exist", flags.dir)
+	}
+
+	_, err = os.ReadDir(flags.dir)
+	if err != nil {
+		return fmt.Errorf("error reading directory '%s': %v", flags.dir, err)
+	}
+
+	zipPath := fmt.Sprintf("%s.zip", flags.dir)
+	err = zipDirectory(flags.dir, zipPath)
+	if err != nil {
+		return fmt.Errorf("error zipping directory '%s': %v", flags.dir, err)
+	}
+	defer os.Remove(zipPath)
+
+	deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", appName)
+	params := url.Values{}
+
+	if flags.revisionName != "" {
+		params.Add("revision_name", flags.revisionName)
+	}
+
+	if flags.sha != "" {
+		params.Add("revision", flags.sha)
+	}
+
+	if len(params) > 0 {
+		deploymentsUrl += "?" + params.Encode()
+	}
+
+	fmt.Printf("Deploying app to %s\n", deploymentsUrl)
+
+	body, err := os.ReadFile(zipPath)
+	if err != nil {
+		return fmt.Errorf("error reading zip file '%s': %v", zipPath, err)
+	}
+
+	err = client.Post(deploymentsUrl, bytes.NewReader(body), nil)
+	if err != nil {
+		return fmt.Errorf("error deploying app: %v", err)
+	}
+
+	fmt.Printf("Successfully deployed app\n")
+	return nil
+}
+
 func zipDirectory(sourceDir, destinationZip string) error {
 	zipFile, err := os.Create(destinationZip)
 	if err != nil {
@@ -85,97 +180,4 @@ func zipDirectory(sourceDir, destinationZip string) error {
 	}
 
 	return nil
-}
-
-func init() {
-	deployCmdFlags := deployCmdFlags{}
-	deployCmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy app to GitHub Runtime",
-		Long: heredoc.Doc(`
-			Deploys a directory to a GitHub Runtime app.
-			You can specify the app name using --app flag, --config flag to read from a runtime config file,
-			or it will automatically read from runtime.config.json in the current directory if it exists.
-		`),
-		Example: heredoc.Doc(`
-			$ gh runtime deploy --dir ./dist --app my-app [--sha <sha>]
-			# => Deploys the contents of the 'dist' directory to the app named 'my-app'.
-			
-			$ gh runtime deploy --dir ./dist --config runtime.config.json
-			# => Deploys using app name from the config file.
-			
-			$ gh runtime deploy --dir ./dist
-			# => Deploys using app name from runtime.config.json in current directory (if it exists).
-		`),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if deployCmdFlags.dir == "" {
-				return fmt.Errorf("--dir flag is required")
-			}
-
-			appName, err := config.ResolveAppName(deployCmdFlags.app, deployCmdFlags.config)
-			if err != nil {
-				return err
-			}
-
-			if _, err := os.Stat(deployCmdFlags.dir); os.IsNotExist(err) {
-				return fmt.Errorf("directory '%s' does not exist", deployCmdFlags.dir)
-			}
-
-			_, err = os.ReadDir(deployCmdFlags.dir)
-			if err != nil {
-				return fmt.Errorf("error reading directory '%s': %v", deployCmdFlags.dir, err)
-			}
-
-			// Zip the directory
-			zipPath := fmt.Sprintf("%s.zip", deployCmdFlags.dir)
-			err = zipDirectory(deployCmdFlags.dir, zipPath)
-			if err != nil {
-				return fmt.Errorf("error zipping directory '%s': %v", deployCmdFlags.dir, err)
-			}
-			defer os.Remove(zipPath)
-
-			client, err := api.DefaultRESTClient()
-			if err != nil {
-				return fmt.Errorf("error creating REST client: %v", err)
-			}
-
-			deploymentsUrl := fmt.Sprintf("runtime/%s/deployment/bundle", appName)
-			params := url.Values{}
-
-			if deployCmdFlags.revisionName != "" {
-				params.Add("revision_name", deployCmdFlags.revisionName)
-			}
-
-			if deployCmdFlags.sha != "" {
-				params.Add("revision", deployCmdFlags.sha)
-			}
-
-			if len(params) > 0 {
-				deploymentsUrl += "?" + params.Encode()
-			}
-
-			fmt.Printf("Deploying app to %s\n", deploymentsUrl)
-
-			// body is the full zip RAW
-			body, err := os.ReadFile(zipPath)
-			if err != nil {
-				return fmt.Errorf("error reading zip file '%s': %v", zipPath, err)
-			}
-
-			err = client.Post(deploymentsUrl, bytes.NewReader(body), nil)
-			if err != nil {
-				return fmt.Errorf("error deploying app: %v", err)
-			}
-
-			fmt.Printf("Successfully deployed app\n")
-			return nil
-		},
-	}
-	deployCmd.Flags().StringVarP(&deployCmdFlags.dir, "dir", "d", "", "The directory to deploy")
-	deployCmd.Flags().StringVarP(&deployCmdFlags.app, "app", "a", "", "The app to deploy")
-	deployCmd.Flags().StringVarP(&deployCmdFlags.config, "config", "c", "", "Path to runtime config file")
-	deployCmd.Flags().StringVarP(&deployCmdFlags.revisionName, "revision-name", "r", "", "The revision name to deploy")
-	deployCmd.Flags().StringVarP(&deployCmdFlags.sha, "sha", "s", "", "SHA of the app being deployed")
-
-	rootCmd.AddCommand(deployCmd)
 }

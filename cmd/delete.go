@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/url"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -11,9 +12,6 @@ import (
 type deleteCmdFlags struct {
 	app string
 	revisionName string
-}
-
-type deleteResp struct {
 }
 
 func init() {
@@ -26,42 +24,49 @@ func init() {
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime delete --app my-app
-			# => Deletes the app named 'my-app'
+			# => Deletes the app with ID 'my-app'
 		`),
-		Run: func(cmd *cobra.Command, args []string) {
-			if deleteCmdFlags.app == "" {
-				fmt.Println("Error: --app flag is required")
-				return
-			}
-
-			deleteUrl := fmt.Sprintf("runtime/%s/deployment", deleteCmdFlags.app)
-			params := url.Values{}
-			if deleteCmdFlags.revisionName != "" {
-				params.Add("revision_name", deleteCmdFlags.revisionName)
-			}
-			if len(params) > 0 {
-				deleteUrl += "?" + params.Encode()
-			}
-			
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
 			if err != nil {
-				fmt.Println(err)
-				return
+				return fmt.Errorf("failed creating REST client: %v", err)
 			}
-			var response string
-			err = client.Delete(deleteUrl, &response)
+
+			response, err := runDelete(client, deleteCmdFlags)
 			if err != nil {
-				// print err and response
-				fmt.Printf("Error deleting app: %v\n", err)
-				fmt.Printf("Response: %v\n", response)
-				return
+				return err
 			}
 
 			fmt.Printf("App deleted: %s\n", response)
+			return nil
 		},
 	}
 
-	deleteCmd.Flags().StringVarP(&deleteCmdFlags.app, "app", "a", "", "The app to delete")
+	deleteCmd.Flags().StringVarP(&deleteCmdFlags.app, "app", "a", "", "The app ID to delete")
 	deleteCmd.Flags().StringVarP(&deleteCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
 	rootCmd.AddCommand(deleteCmd)
+}
+
+func runDelete(client restClient, flags deleteCmdFlags) (string, error) {
+	if flags.app == "" {
+		return "", fmt.Errorf("--app flag is required")
+	}
+
+	deleteUrl := fmt.Sprintf("runtime/%s/deployment", flags.app)
+	params := url.Values{}
+	if flags.revisionName != "" {
+		params.Add("revision_name", flags.revisionName)
+	}
+	if len(params) > 0 {
+		deleteUrl += "?" + params.Encode()
+	}
+
+	var response string
+	err := client.Delete(deleteUrl, &response)
+	if err != nil {
+		return response, fmt.Errorf("error deleting app: %v", err)
+	}
+
+	// Actual response on success is empty body so return the ID
+	return flags.app, nil
 }

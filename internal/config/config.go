@@ -27,11 +27,11 @@ func ReadRuntimeConfig(configPath string) (string, error) {
 	return config.App, nil
 }
 
-// ResolveAppName resolves the app name using the priority order:
+// ResolveAppName resolves the app ID using the priority order:
 // 1. appFlag (--app) if provided
 // 2. configPath (--config) if provided
 // 3. runtime.config.json in current directory if it exists
-// Returns an error if no app name can be resolved
+// Returns an error if no app ID can be resolved
 func ResolveAppName(appFlag, configPath string) (string, error) {
 	// Priority 1: Use --app flag if provided
 	if appFlag != "" {
@@ -52,6 +52,6 @@ func ResolveAppName(appFlag, configPath string) (string, error) {
 		return appName, nil
 	}
 
-	// No app name could be resolved
+	// No app ID could be resolved
 	return "", fmt.Errorf("--app flag is required, --config must be specified, or runtime.config.json must exist in current directory")
 }
