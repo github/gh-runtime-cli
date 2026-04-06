@@ -16,6 +16,7 @@ type createCmdFlags struct {
 	app                  string
 	name                 string
 	visibility           string
+	org                  string
 	environmentVariables []string
 	secrets              []string
 	revisionName         string
@@ -25,6 +26,7 @@ type createCmdFlags struct {
 type createReq struct {
 	Name                 string            `json:"friendly_name,omitempty"`
 	Visibility           string            `json:"visibility,omitempty"`
+	OrganizationLogin    string            `json:"organization_login,omitempty"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
 	Secrets              map[string]string `json:"secrets"`
 }
@@ -40,7 +42,10 @@ func init() {
 		Use:   "create",
 		Short: "Create a GitHub Runtime app",
 		Long: heredoc.Doc(`
-			Create a GitHub Runtime app
+			Create a GitHub Runtime app.
+
+			Use --visibility to control who can access the app. When set to 'selected_orgs',
+			--org is required to specify the organization login that will have access.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime create --app my-app --env key1=value1 --env key2=value2 --secret key3=value3 --secret key4=value4
@@ -48,6 +53,9 @@ func init() {
 
 			$ gh runtime create --name my-new-app
 			# => Creates a new app with the given name
+
+			$ gh runtime create --app my-app --visibility selected_orgs --org my-org
+			# => Creates the app visible to 'my-org' organization
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.DefaultRESTClient()
@@ -70,7 +78,8 @@ func init() {
 
 	createCmd.Flags().StringVarP(&createCmdFlags.app, "app", "a", "", "The app ID to create")
 	createCmd.Flags().StringVarP(&createCmdFlags.name, "name", "n", "", "The name for the app")
-	createCmd.Flags().StringVarP(&createCmdFlags.visibility, "visibility", "v", "", "The visibility of the app (e.g. 'only_owner' or 'github')")
+	createCmd.Flags().StringVarP(&createCmdFlags.visibility, "visibility", "v", "", "The visibility of the app (e.g. 'only_owner', 'github', or 'selected_orgs')")
+	createCmd.Flags().StringVarP(&createCmdFlags.org, "org", "o", "", "The organization login to grant access (only valid with --visibility=selected_orgs)")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.environmentVariables, "env", "e", []string{}, "Environment variables to set on the app in the form 'key=value'")
 	createCmd.Flags().StringSliceVarP(&createCmdFlags.secrets, "secret", "s", []string{}, "Secrets to set on the app in the form 'key=value'")
 	createCmd.Flags().StringVarP(&createCmdFlags.revisionName, "revision-name", "r", "", "The revision name to use for the app")
@@ -83,9 +92,18 @@ func runCreate(client restClient, flags createCmdFlags) (createResp, error) {
 		return createResp{}, fmt.Errorf("either --app or --name flag is required")
 	}
 
+	if flags.org != "" && flags.visibility != "selected_orgs" {
+		return createResp{}, fmt.Errorf("--org can only be used with --visibility=selected_orgs")
+	}
+
+	if flags.visibility == "selected_orgs" && flags.org == "" {
+		return createResp{}, fmt.Errorf("--org is required when --visibility=selected_orgs")
+	}
+
 	requestBody := createReq{
 		Name:                 flags.name,
 		Visibility:           flags.visibility,
+		OrganizationLogin:    flags.org,
 		EnvironmentVariables: map[string]string{},
 		Secrets:              map[string]string{},
 	}

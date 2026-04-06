@@ -220,6 +220,40 @@ func TestRunCreate_WithVisibility(t *testing.T) {
 	assert.Equal(t, "github", req.Visibility)
 }
 
+func TestRunCreate_OrgWithoutSelectedOrgsVisibility(t *testing.T) {
+	client := &mockRESTClient{}
+	_, err := runCreate(client, createCmdFlags{app: "my-app", org: "my-org"})
+	require.ErrorContains(t, err, "--org can only be used with --visibility=selected_orgs")
+
+	_, err = runCreate(client, createCmdFlags{app: "my-app", visibility: "github", org: "my-org"})
+	require.ErrorContains(t, err, "--org can only be used with --visibility=selected_orgs")
+}
+
+func TestRunCreate_SelectedOrgsVisibilityWithoutOrg(t *testing.T) {
+	client := &mockRESTClient{}
+	_, err := runCreate(client, createCmdFlags{app: "my-app", visibility: "selected_orgs"})
+	require.ErrorContains(t, err, "--org is required when --visibility=selected_orgs")
+}
+
+func TestRunCreate_WithOrgAndSelectedOrgsVisibility(t *testing.T) {
+	var capturedBody []byte
+	client := &mockRESTClient{
+		putFunc: func(_ string, body io.Reader, resp interface{}) error {
+			capturedBody, _ = io.ReadAll(body)
+			buildCreateResponse(createResp{AppUrl: "https://my-app.example.com"}, resp)
+			return nil
+		},
+	}
+
+	_, err := runCreate(client, createCmdFlags{app: "my-app", visibility: "selected_orgs", org: "my-org"})
+	require.NoError(t, err)
+
+	var req createReq
+	json.Unmarshal(capturedBody, &req)
+	assert.Equal(t, "selected_orgs", req.Visibility)
+	assert.Equal(t, "my-org", req.OrganizationLogin)
+}
+
 func TestRunCreate_ResponseWithID(t *testing.T) {
 	client := &mockRESTClient{
 		putFunc: func(_ string, _ io.Reader, resp interface{}) error {
