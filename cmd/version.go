@@ -8,7 +8,7 @@ import (
 )
 
 // Version of the CLI app.
-var Version = "0.1.0"
+var Version = "0.0.10"
 
 // The command prints out the version of the CLI app.
 func init() {
