@@ -51,6 +51,12 @@ func init() {
 			$ gh runtime create --name my-new-app
 			# => Creates a new app with the given name
 
+			$ gh runtime create --app my-app --visibility only_owner
+			# => Creates the app visible only to the owner
+
+			$ gh runtime create --app my-app --visibility github
+			# => Creates the app visible to all GitHub users
+
 			$ gh runtime create --app my-app --visibility selected_orgs --org my-org
 			# => Creates the app visible to 'my-org' organization
 		`),
