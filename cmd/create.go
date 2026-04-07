@@ -43,9 +43,6 @@ func init() {
 		Short: "Create a GitHub Runtime app",
 		Long: heredoc.Doc(`
 			Create a GitHub Runtime app.
-
-			Use --visibility to control who can access the app. When set to 'selected_orgs',
-			--org is required to specify the organization login that will have access.
 		`),
 		Example: heredoc.Doc(`
 			$ gh runtime create --app my-app --env key1=value1 --env key2=value2 --secret key3=value3 --secret key4=value4
