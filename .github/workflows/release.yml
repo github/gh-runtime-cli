@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Confirm tag and code versions match
+        run: |
+          .github/workflows/check-version.sh
+
       - uses: cli/gh-extension-precompile@v2
         with:
           generate_attestations: true
